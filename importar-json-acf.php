@@ -398,6 +398,7 @@ function calcularProximaImportacio($ultimaImportacio, $periode, $horaExacta = nu
 
     if ($horaExacta) {
         list($hour, $minute, $second) = explode(':', $horaExacta);
+        $second = $second ? $second : 0;
         $data->setTime($hour, $minute, $second);
     }
 
@@ -430,9 +431,57 @@ function getCustomFields($postType)
     }
     return $custom_fields;
 }
+/**
+ * Download the image from the url and return the attachment id
+ * @param string $url The url of the image
+ * @return int The attachment id
+ */
+function download_img_from_url($url)
+{
+    $upload_dir = wp_upload_dir();
+    $image_data = file_get_contents($url);
+    $filename = basename($url);
+    if (wp_mkdir_p($upload_dir['path'])) {
+        $file = $upload_dir['path'] . '/' . $filename;
+    } else {
+        $file = $upload_dir['basedir'] . '/' . $filename;
+    }
+    file_put_contents($file, $image_data);
+    $wp_filetype = wp_check_filetype($filename, null);
+    $attachment = array(
+        'post_mime_type' => $wp_filetype['type'],
+        'post_title' => sanitize_file_name($filename),
+        'post_content' => '',
+        'post_status' => 'inherit'
+    );
+    $attach_id = wp_insert_attachment($attachment, $file);
+    require_once(ABSPATH . 'wp-admin/includes/image.php');
+    $attach_data = wp_generate_attachment_metadata($attach_id, $file);
+    wp_update_attachment_metadata($attach_id, $attach_data);
+    return $attach_id;
+}
+/**
+ * Execute the field by type
+ * @param mixed $key
+ * @param mixed $value
+ * @param mixed $post_id
+ * @return void
+ */
+function execute_by_type($key, $value, $post_id)
 
-
-
+{
+    $field = get_field_object($key, $post_id);
+    $type = $field['type'];
+    switch ($type) {
+        case 'image':
+            $attach_id = download_img_from_url($value);
+            update_field($key, $attach_id, $post_id);
+            break;
+        default:
+            update_field($key, $value, $post_id);
+            break;
+    }
+}
 /**
  * get the json file and import the data to the custom post type
  * @param mixed $path
@@ -440,8 +489,6 @@ function getCustomFields($postType)
  */
 function desar_json_automaticament_acf_cataleg($path, $postType, $primary_keys)
 {
-
-
 
     writeTolog('Important contingut del fitxer ' . $path);
     // Carregar el contingut del fitxer JSON
@@ -502,11 +549,11 @@ function desar_json_automaticament_acf_cataleg($path, $postType, $primary_keys)
 
             foreach ($d as $key => $value) {
                 if (in_array($key, $custom_fields)) {
-                    update_field($key, $value, $post_id);
+                    execute_by_type($key, $value, $post_id);
+                    //update_field($key, $value, $post_id);
                 }
             }
         }
-
         // Reset post data per evitar conflictes amb altres queries
         wp_reset_postdata();
     }
