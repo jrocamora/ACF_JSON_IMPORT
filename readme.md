@@ -1,5 +1,5 @@
 === JsonToCustomFields ===
-Contributors: cesc97
+Contributors: cesc97, jrocamora
 Tags: json,customfields,import
 Donate link: example.com/donate
 Requires at least: 6.5
