@@ -6,22 +6,10 @@ include 'importJson.php';
 /**
  * Plugin Name: JsonToCustomFields
  * Description: plugin to easily import JSON files to custom fields
- * Version: 0.1
- * Author: Cesc97
+ * Version: 0.2
+ * Author: Cesc97, jrocamora
  */
-// check if ACF is installed
-if (! function_exists('acf_add_local_field_group')) {
-    add_action('admin_notices', 'acf_no_installed_notice');
-    function acf_no_installed_notice()
-    {
-?>
-        <div class="notice notice-error">
-            <p><?php _e('Advanced Custom Fields no està activat. Aquest plugin necessita ACF per funcionar.', 'text-domain'); ?></p>
-        </div>
-<?php
-    }
-    return;
-}
+
 
 // Register activion hook
 register_activation_hook(__FILE__, 'crear_taula_json_files');
