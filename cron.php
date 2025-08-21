@@ -3,7 +3,7 @@ function execucioCron() {
     writeTolog('Cron job started');
     
     // Defineix la mida del lot que vols processar en cada execució
-    $batch_size = 15; 
+    $batch_size = 50; 
     
     $json_files = obtenir_valors_json_files();
     if (empty($json_files)) {
@@ -22,13 +22,14 @@ function execucioCron() {
 
         $next_import_timestamp = strtotime($file->next_import);
 
-        // Si toca importar
+        // Aquesta condició s'ha de mantenir per evitar importacions abans de la data programada
         if ($now > $next_import_timestamp) {
             writeTolog('Importació automàtica de ' . $file->file_path);
             
             // Genera una clau única per al marcador de l'offset per a cada fitxer
             $option_name = 'import_offset_' . md5($file->file_path);
-            // Llegeix l'índex per on ha de començar l'importació o zero si es nou
+            
+            // Llegeix l'índex per on ha de començar l'importació
             $offset = get_option($option_name, 0);
 
             // Aquesta és la funció que processarà només un lot
@@ -42,16 +43,12 @@ function execucioCron() {
             );
 
             if ($more_data_to_process) {
-                // Si encara queden dades, actualitzem l'offset per a la pròxima execució
-                $new_offset = $offset + $batch_size;
-                update_option($option_name, $new_offset);
-                writeTolog("INFO: Lot completat. S'ha programat el següent lot per a continuar des de l'índex $new_offset.");
-                
-                // NOTA: Si el teu cron ja s'executa cada hora, i una importació pot trigar molt,
-                // seria convenient programar un esdeveniment individual aquí per continuar abans.
+                // Si encara queden dades, el cron ja s'haurà actualitzat a nivell de l'element.
+                // Simplement loguegem que hi haurà una continuació.
+                writeTolog("INFO: Lot completat. La importació del fitxer '" . $file->file_path . "' es reprendrà a la pròxima execució del cron.");
                 
             } else {
-                // Si hem acabat de processar tot el fitxer, ho indiquem
+                // Si l'importació s'ha completat, ho indiquem
                 writeTolog("INFO: Importació del fitxer '" . $file->file_path . "' completada.");
                 
                 // Neteja l'offset de la base de dades
@@ -59,7 +56,7 @@ function execucioCron() {
                 
                 // I programa la propera importació completa, amb la teva lògica de periodicitat
                 $next_import = calcularProximaImportacio($file->last_import, $file->importPeriod, $file->hora_exacta);
-                updateImportPeriod($file->id, $next_import); // Això hauria de rebre el $next_import
+                updateImportPeriod($file->id, $next_import);
                 writeTolog('Propera importació completa: ' . $next_import);
             }
         }
