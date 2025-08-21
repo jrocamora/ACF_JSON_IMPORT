@@ -127,6 +127,68 @@ function execute_by_type($key, $value, $post_id)
     }
 }
 /**
+
+* Importa un lot de dades JSON i actualitza l'offset en cada element processat.
+*
+* @param string $path El camí del fitxer JSON.
+* @param string $postType El tipus de post personalitzat.
+* @param array $primary_keys Les claus primàries per identificar posts.
+* @param string $titleKey La clau de títol per al post.
+* @param int $offset L'índex per on començar la importació.
+* @param int $limit El nombre d'elements a importar en aquest lot.
+* @return bool Retorna true si queden més dades, false si l'importació s'ha acabat.
+*/
+
+function importar_json_lot($path, $postType, $primary_keys, $titleKey, $offset, $limit)
+{
+try {
+    $data = carregar_dades_json($path);
+    if (empty($data)) {
+        mostrar_missatge_error('El fitxer JSON no conté dades vàlides.');
+        writeTolog('ERROR: El fitxer JSON no conté dades vàlides.');
+        return false;
+    }
+    
+    $total_items = count($data);
+
+    if ($offset >= $total_items) {
+        writeTolog("INFO: El fitxer '$path' s'ha importat completament.");
+        return false;
+    }
+
+    $custom_fields = getCustomFields($postType);
+
+    $option_name = 'import_offset_' . md5($path); // Generem la clau de l'offset
+
+    // Agafa només un tros de l'array de dades
+    $data_chunk = array_slice($data, $offset, $limit, true); // `true` preserva les claus de l'array
+
+    writeTolog("INFO: Processant lot de " . count($data_chunk) . " elements, començant per l'índex $offset.");
+
+    foreach ($data_chunk as $index => $d) {
+        $post_id = obtenir_o_crear_post($d, $postType, $primary_keys, $titleKey);
+      
+        if ($post_id && !is_wp_error($post_id)) {
+            actualitzar_camps_personalitzats($post_id, $d, $custom_fields);
+        }
+
+        // Actualitzem l'offset després de processar cada element
+        $new_offset = $index + 1;
+        update_option($option_name, $new_offset);
+        writeTolog("DEBUG: Marcador d'offset actualitzat a: " . $new_offset);
+
+    }
+    $final_offset = $offset + count($data_chunk);
+
+    return $final_offset < $total_items; //Retorno true 
+ 
+
+} catch (Throwable $e) {
+    writeTolog("ERROR: S'ha produït una excepció a importar_json_lot: " . $e->getMessage() . " a la línia " . $e->getLine());
+    return false;
+}
+
+/**
  * get the json file and import the data to the custom post type
  * @param mixed $path
  * @return void
